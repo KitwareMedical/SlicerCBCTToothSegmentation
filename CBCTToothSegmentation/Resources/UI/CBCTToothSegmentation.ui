@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>860</width>
-    <height>875</height>
+    <width>527</width>
+    <height>537</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -48,14 +48,14 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
+      <item row="1" column="0">
        <widget class="QLabel" name="label_4">
         <property name="text">
          <string>Input ROI:</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="1">
+      <item row="1" column="1">
        <widget class="qMRMLNodeComboBox" name="inputROIBox">
         <property name="nodeTypes">
          <stringlist notr="true">
@@ -70,17 +70,14 @@
         </property>
        </widget>
       </item>
-      <item row="3" column="1">
-       <widget class="qMRMLMarkupsROIWidget" name="MRMLMarkupsROIWidget"/>
-      </item>
-      <item row="4" column="0">
+      <item row="2" column="0">
        <widget class="QLabel" name="label_5">
         <property name="text">
          <string>Output segmentation:</string>
         </property>
        </widget>
       </item>
-      <item row="4" column="1">
+      <item row="2" column="1">
        <widget class="qMRMLNodeComboBox" name="outputSelectorBox">
         <property name="toolTip">
          <string>Result with inverted threshold will be written into this volume</string>
@@ -104,43 +101,6 @@
         </property>
         <property name="SlicerParameterName" stdset="0">
          <string>outputSegmentation</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="ctkCollapsibleButton" name="CollapsibleButton">
-     <property name="text">
-      <string>Segmentation Method</string>
-     </property>
-     <layout class="QFormLayout" name="formLayout">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_3">
-        <property name="enabled">
-         <bool>true</bool>
-        </property>
-        <property name="text">
-         <string>Load segmentation model: </string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="ctkPathLineEdit" name="PathLineEdit">
-        <property name="enabled">
-         <bool>true</bool>
-        </property>
-        <property name="currentPath">
-         <string/>
-        </property>
-        <property name="nameFilters">
-         <stringlist>
-          <string>*.pth</string>
-         </stringlist>
-        </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>inputModelPath</string>
         </property>
        </widget>
       </item>
@@ -205,11 +165,6 @@
    <container>1</container>
   </customwidget>
   <customwidget>
-   <class>ctkPathLineEdit</class>
-   <extends>QWidget</extends>
-   <header>ctkPathLineEdit.h</header>
-  </customwidget>
-  <customwidget>
    <class>qMRMLNodeComboBox</class>
    <extends>QWidget</extends>
    <header>qMRMLNodeComboBox.h</header>
@@ -219,11 +174,6 @@
    <extends>QWidget</extends>
    <header>qMRMLWidget.h</header>
    <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>qMRMLMarkupsROIWidget</class>
-   <extends>QWidget</extends>
-   <header>qMRMLMarkupsROIWidget.h</header>
   </customwidget>
   <customwidget>
    <class>qMRMLSegmentationFileExportWidget</class>
@@ -294,38 +244,6 @@
     <hint type="destinationlabel">
      <x>295</x>
      <y>139</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>CBCTToothSegmentationTester</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>MRMLMarkupsROIWidget</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>239</x>
-     <y>395</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>295</x>
-     <y>253</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>inputROIBox</sender>
-   <signal>currentNodeChanged(vtkMRMLNode*)</signal>
-   <receiver>MRMLMarkupsROIWidget</receiver>
-   <slot>setMRMLMarkupsNode(vtkMRMLNode*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>295</x>
-     <y>139</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>295</x>
-     <y>253</y>
     </hint>
    </hints>
   </connection>

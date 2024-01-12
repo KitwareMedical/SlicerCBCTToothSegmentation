@@ -165,13 +165,35 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
+        self.ui.inputROIBox.currentNodeChanged.connect(self.initializeROI)
         # Buttons
         self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
 
-        cropVolumeLogic = slicer.modules.cropvolume.logic()
+    def initializeROI(self) -> None:
+
+        """
+        Initialize an ROI to fit the volume
+        """
+        # Define an initial ROI set to the size of the input image
+        crop_module = slicer.vtkMRMLCropVolumeParametersNode()
+        slicer.mrmlScene.AddNode(crop_module)
+        crop_module.SetInputVolumeNodeID(self.ui.inputSelectorBox.currentNode().GetID())
+        # Set output volume as the same volume to overwrite original volume (only needed if you actually want to crop the volume)
+        crop_module.SetOutputVolumeNodeID(self.ui.inputSelectorBox.currentNode().GetID())
+        # Set the input ROI
+        crop_module.SetROINodeID(self.ui.inputROIBox.currentNode().GetID())
+
+        # Use the Fit ROI to Volume function of the crop volume module
+        slicer.modules.cropvolume.logic().SnapROIToVoxelGrid(crop_module)  # optional (rotates the ROI to match the volume axis directions)
+        slicer.modules.cropvolume.logic().FitROIToInputVolume(crop_module)
+
+        slicer.mrmlScene.RemoveNode(crop_module)
+        self.ui.inputROIBox.currentNode().SetName(
+            slicer.mrmlScene.GenerateUniqueName("Tooth Segmentation ROI")
+        )
 
     def cleanup(self) -> None:
         """
@@ -243,7 +265,6 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
             self._parameterNodeGuiTag = self._parameterNode.connectGui(self.ui)
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanApply)
             self._checkCanApply()
-    
 
     def _checkCanApply(self, caller=None, event=None) -> None:
         if self._parameterNode and self._parameterNode.inputVolume and self._parameterNode.inputModelPath:
@@ -261,19 +282,19 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
             
             print("UI")
             print(self.ui)
-
-            # Create output segmentation node, if not created yet
+            
             segmentationNode = self.ui.outputSelectorBox.currentNode()
+            # Create output segmentation node, if not created yet 
             if not segmentationNode:
                 segmentationNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode', slicer.mrmlScene.GenerateUniqueName('Tooth'))
                 segmentationNode.CreateDefaultDisplayNodes()
                 segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(self.ui.inputSelectorBox.currentNode())
                 self.ui.outputSelectorBox.setCurrentNode(segmentationNode)
-            
+
             # Setup python requirements
             self.logic.setupPythonRequirements()
 
-            # Compute output
+            # Compute output segmentation
             self.logic.process(self.ui.inputSelectorBox.currentNode(), segmentationNode, self.ui.inputROIBox.currentNode(),self._parameterNode.inputModelPath)
 
 # CBCTToothSegmentationLogic
@@ -306,32 +327,50 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         try:
             import PyTorchUtils
         except ModuleNotFoundError:
-            slicer.util.messageBox("MEMOS requires the PyTorch extension. Please install it from the Extensions Manager.")
+            slicer.util.messageBox("Module requires the PyTorch extension. Please install it from the Extensions Manager.")
         
         torchLogic = PyTorchUtils.PyTorchUtilsLogic()
-        if not torchLogic.torchInstalled():
-            logging.debug('MEMOS requires the PyTorch Python package. Installing... (it may take several minutes)')
-        
-        torch = torchLogic.installTorch(askConfirmation=True)
-        if torch is None:
-            slicer.util.messageBox('PyTorch extension needs to be installed manually to use this module.')
+        torchInstalled = torchLogic.torchInstalled()
+        if not torchInstalled:
+            logging.debug('Module requires the PyTorch Python package. Installing... (it may take several minutes)')
+            torch = torchLogic.installTorch(askConfirmation=True)
+            if torch is None:
+                slicer.util.messageBox('PyTorch extension needs to be installed manually to use this module.')
+        else:
+            logging.debug("Found torch already installed")
     
-        import torch
+        # import torch
     
         # Install MONAI and restart if the version was updated.
         monaiVersion = "0.9.0"
         try:
             import monai
-            if version.parse(monai.__version__) != version.parse(monaiVersion):
-                logging.debug(f'MEMOS requires MONAI version {monaiVersion}. Installing... (it may take several minutes)')
-                slicer.util.pip_uninstall('monai')
-                slicer.util.pip_install('monai[pynrrd]=='+ monaiVersion)
-                if slicer.util.confirmOkCancelDisplay(f'MONAI version was updated {monaiVersion}.\n Click OK restart Slicer.'):
-                    slicer.util.restart()
         except:
-            logging.debug('MEMOS requires installation of the MONAI Python package. Installing... (it may take several minutes)')
-            slicer.util.pip_install('monai[pynrrd]=='+ monaiVersion)     
-    
+            logging.debug('Module requires the MONAI Python package. Installing... (it may take several minutes)')
+            slicer.util.pip_install('monai')     
+
+    def downloadModel(self) -> None:
+
+        """
+        Download model from shared google drive link
+        """
+
+        import SampleData
+        import os, qt
+
+        url = "https://drive.usercontent.google.com/download?id=1a0uxBQmVkCAaqKNJiFEo3NKAfCv5z0SL&export=download&authuser=0"
+        destination_folder = qt.QDir().tempPath()
+        modelPath = os.path.join(destination_folder,'pretrainedmodel-DentalCBCTSegmentation.pth')
+        name = 'pretrainedmodel-DentalCBCTSegmentation.pth'
+        if not os.path.exists(modelPath):
+            print("Downloading pretrained model to local temp directory...")
+            print("...")
+            SampleData.SampleDataLogic().downloadFile(url, destination_folder, name, checksum=None)
+            print('Done.')
+        print('Pre-trained model saved to: ', modelPath)
+        
+        return modelPath
+        
     def process(self,
                 inputVolume: vtkMRMLScalarVolumeNode,
                 outputSegmentationNode: vtkMRMLSegmentationNode,
@@ -364,7 +403,6 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         croppedVolume = slicer.mrmlScene.GetNodeByID(cropVolumeParameterNode.GetOutputVolumeNodeID())
 
         inputImageArray  = slicer.util.arrayFromVolume(croppedVolume)
-        print("Input  shape:", inputImageArray.shape)
         inputCrop_shape = inputImageArray.shape
        
         # Automated segmentation
@@ -384,11 +422,11 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
 
         print("Cuda is available:", torch.cuda.is_available())
 
-        # if torch.cuda.is_available():
-        #     device = torch.device("cuda:0")
-        # else:
-        #     device = "cpu"
-        device = "cpu"
+        if torch.cuda.is_available():
+            device = torch.device("cuda:0")
+        else:
+            device = "cpu"
+        # device = "cpu"
     
         #Define U-Net model
         print(device)
@@ -404,8 +442,8 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
             dropout=0.2).to(device)
         
         #Load model weights
-        print(inputModelPath)
-        loaded_model = torch.load(inputModelPath, map_location='cpu')
+        inputModelPath = self.downloadModel()
+        loaded_model = torch.load(inputModelPath, map_location=device)
         model.load_state_dict(loaded_model, strict = True) #Strict is false since U-Net is missing some keys - batch norm related?
         model.eval()
 
@@ -427,8 +465,6 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         output = inferer(inputProcessed, model)
         output = torch.softmax(output, axis=1).data.cpu().numpy()
         output = np.argmax(output, 1).squeeze().astype(int)
-        # output = np.moveaxis(output,[0,1,2],[2,1,0])
-        # Reorient. Numpy uses KJI format instead of IJK
 
         # Crop the predicion back to original size
         lower = [0]*3
@@ -444,7 +480,6 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
                 upper[i] = dim
       
         output_reshaped = output[lower[0]:upper[0],lower[1]:upper[1],lower[2]:upper[2]]
-        print("Output shape:", output_reshaped.shape)
 
         # # Keep largect connected component
         # largest_comp_transform = KeepLargestConnectedComponent()
@@ -452,14 +487,10 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
 
         # Need to take cropped segmentation back into the space of the original image
         outputSegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(croppedVolume)
-
         outputSegmentationNode.GetSegmentation().AddEmptySegment("ToothSegmentation")
         segmentId = outputSegmentationNode.GetSegmentation().GetSegmentIdBySegmentName("ToothSegmentation")
-        print(outputSegmentationNode.GetSegmentation().GetNumberOfSegments())
 
         slicer.util.updateSegmentBinaryLabelmapFromArray(output_reshaped,outputSegmentationNode, segmentId)
-
-        print("Completed prediction")
 
         slicer.util.setSliceViewerLayers(background=inputVolume,foreground = outputSegmentationNode, foregroundOpacity=0.5)
 
