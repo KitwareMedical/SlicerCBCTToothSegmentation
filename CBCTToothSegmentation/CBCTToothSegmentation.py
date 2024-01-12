@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Annotated, Optional
 
-import vtk
+import vtk, pathlib
 
 import slicer
 from slicer.i18n import tr as _
@@ -14,8 +14,9 @@ from slicer.parameterNodeWrapper import (
     WithinRange,
 )
 
-from slicer import vtkMRMLScalarVolumeNode
-
+from slicer import vtkMRMLScalarVolumeNode,vtkMRMLMarkupsFiducialNode, vtkMRMLSegmentationNode, vtkMRMLMarkupsROINode
+import SimpleITK as sitk
+import sitkUtils
 
 #
 # CBCTToothSegmentation
@@ -115,12 +116,9 @@ class CBCTToothSegmentationParameterNode:
     invertedVolume - The output volume that will contain the inverted thresholded volume.
     """
     inputVolume: vtkMRMLScalarVolumeNode
-    imageThreshold: Annotated[float, WithinRange(-100, 500)] = 100
-    invertThreshold: bool = False
-    thresholdedVolume: vtkMRMLScalarVolumeNode
-    invertedVolume: vtkMRMLScalarVolumeNode
-
-
+    outputSegmentation: vtkMRMLSegmentationNode
+    inputROI: vtkMRMLMarkupsROINode
+    inputModelPath: pathlib.Path
 #
 # CBCTToothSegmentationWidget
 #
@@ -146,7 +144,7 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
         """
         ScriptedLoadableModuleWidget.setup(self)
 
-        # Load widget from .ui file (created by Qt Designer).
+        # Load widget from .ui file (created by Qt Designer)
         # Additional widgets can be instantiated manually and added to self.layout.
         uiWidget = slicer.util.loadUI(self.resourcePath('UI/CBCTToothSegmentation.ui'))
         self.layout.addWidget(uiWidget)
@@ -172,6 +170,8 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
+
+        cropVolumeLogic = slicer.modules.cropvolume.logic()
 
     def cleanup(self) -> None:
         """
@@ -226,6 +226,7 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
             if firstVolumeNode:
                 self._parameterNode.inputVolume = firstVolumeNode
 
+
     def setParameterNode(self, inputParameterNode: Optional[CBCTToothSegmentationParameterNode]) -> None:
         """
         Set and observe parameter node.
@@ -242,13 +243,14 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
             self._parameterNodeGuiTag = self._parameterNode.connectGui(self.ui)
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanApply)
             self._checkCanApply()
+    
 
     def _checkCanApply(self, caller=None, event=None) -> None:
-        if self._parameterNode and self._parameterNode.inputVolume and self._parameterNode.thresholdedVolume:
-            self.ui.applyButton.toolTip = _("Compute output volume")
+        if self._parameterNode and self._parameterNode.inputVolume and self._parameterNode.inputModelPath:
+            self.ui.applyButton.toolTip = _("Compute output tooth segmentation")
             self.ui.applyButton.enabled = True
         else:
-            self.ui.applyButton.toolTip = _("Select input and output volume nodes")
+            self.ui.applyButton.toolTip = _("Select input volume node and input seed")
             self.ui.applyButton.enabled = False
 
     def onApplyButton(self) -> None:
@@ -256,19 +258,24 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
         Run processing when user clicks "Apply" button.
         """
         with slicer.util.tryWithErrorDisplay(_("Failed to compute results."), waitCursor=True):
+            
+            print("UI")
+            print(self.ui)
+
+            # Create output segmentation node, if not created yet
+            segmentationNode = self.ui.outputSelectorBox.currentNode()
+            if not segmentationNode:
+                segmentationNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode', slicer.mrmlScene.GenerateUniqueName('Tooth'))
+                segmentationNode.CreateDefaultDisplayNodes()
+                segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(self.ui.inputSelectorBox.currentNode())
+                self.ui.outputSelectorBox.setCurrentNode(segmentationNode)
+            
+            # Setup python requirements
+            self.logic.setupPythonRequirements()
 
             # Compute output
-            self.logic.process(self.ui.inputSelector.currentNode(), self.ui.outputSelector.currentNode(),
-                               self.ui.imageThresholdSliderWidget.value, self.ui.invertOutputCheckBox.checked)
+            self.logic.process(self.ui.inputSelectorBox.currentNode(), segmentationNode, self.ui.inputROIBox.currentNode(),self._parameterNode.inputModelPath)
 
-            # Compute inverted output (if needed)
-            if self.ui.invertedOutputSelector.currentNode():
-                # If additional output volume is selected then result with inverted threshold is written there
-                self.logic.process(self.ui.inputSelector.currentNode(), self.ui.invertedOutputSelector.currentNode(),
-                                   self.ui.imageThresholdSliderWidget.value, not self.ui.invertOutputCheckBox.checked, showResult=False)
-
-
-#
 # CBCTToothSegmentationLogic
 #
 
@@ -291,39 +298,170 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
     def getParameterNode(self):
         return CBCTToothSegmentationParameterNode(super().getParameterNode())
 
+    def setupPythonRequirements(self):
+
+        print('Checking python dependencies')
+
+        # Install PyTorch
+        try:
+            import PyTorchUtils
+        except ModuleNotFoundError:
+            slicer.util.messageBox("MEMOS requires the PyTorch extension. Please install it from the Extensions Manager.")
+        
+        torchLogic = PyTorchUtils.PyTorchUtilsLogic()
+        if not torchLogic.torchInstalled():
+            logging.debug('MEMOS requires the PyTorch Python package. Installing... (it may take several minutes)')
+        
+        torch = torchLogic.installTorch(askConfirmation=True)
+        if torch is None:
+            slicer.util.messageBox('PyTorch extension needs to be installed manually to use this module.')
+    
+        import torch
+    
+        # Install MONAI and restart if the version was updated.
+        monaiVersion = "0.9.0"
+        try:
+            import monai
+            if version.parse(monai.__version__) != version.parse(monaiVersion):
+                logging.debug(f'MEMOS requires MONAI version {monaiVersion}. Installing... (it may take several minutes)')
+                slicer.util.pip_uninstall('monai')
+                slicer.util.pip_install('monai[pynrrd]=='+ monaiVersion)
+                if slicer.util.confirmOkCancelDisplay(f'MONAI version was updated {monaiVersion}.\n Click OK restart Slicer.'):
+                    slicer.util.restart()
+        except:
+            logging.debug('MEMOS requires installation of the MONAI Python package. Installing... (it may take several minutes)')
+            slicer.util.pip_install('monai[pynrrd]=='+ monaiVersion)     
+    
     def process(self,
                 inputVolume: vtkMRMLScalarVolumeNode,
-                outputVolume: vtkMRMLScalarVolumeNode,
-                imageThreshold: float,
-                invert: bool = False,
+                outputSegmentationNode: vtkMRMLSegmentationNode,
+                inputROI: vtkMRMLMarkupsROINode,
+                inputModelPath: pathlib.Path,
                 showResult: bool = True) -> None:
         """
         Run the processing algorithm.
         Can be used without GUI widget.
-        :param inputVolume: volume to be thresholded
-        :param outputVolume: thresholding result
-        :param imageThreshold: values above/below this threshold will be set to 0
-        :param invert: if True then values above the threshold will be set to 0, otherwise values below are set to 0
+        :param inputVolume: volume to be Segmented
+        :param outputVolume: Segmentation result
+        :param inputROI - To ADD
         :param showResult: show output volume in slice viewers
         """
 
-        if not inputVolume or not outputVolume:
+        if not inputVolume or not outputSegmentationNode:
             raise ValueError("Input or output volume is invalid")
 
         import time
         startTime = time.time()
         logging.info('Processing started')
 
-        # Compute the thresholded output volume using the "Threshold Scalar Volume" CLI module
-        cliParams = {
-            'InputVolume': inputVolume.GetID(),
-            'OutputVolume': outputVolume.GetID(),
-            'ThresholdValue': imageThreshold,
-            'ThresholdType': 'Above' if invert else 'Below'
-        }
-        cliNode = slicer.cli.run(slicer.modules.thresholdscalarvolume, None, cliParams, wait_for_completion=True, update_display=showResult)
-        # We don't need the CLI module node anymore, remove it to not clutter the scene with it
-        slicer.mrmlScene.RemoveNode(cliNode)
+        # Crop the image using the user specified ROI
+        cropVolumeLogic = slicer.modules.cropvolume.logic()
+        cropVolumeParameterNode = slicer.vtkMRMLCropVolumeParametersNode()
+        cropVolumeParameterNode.SetROINodeID(inputROI.GetID())
+        cropVolumeParameterNode.SetInputVolumeNodeID(inputVolume.GetID())
+        cropVolumeParameterNode.SetVoxelBased(True)
+        cropVolumeLogic.Apply(cropVolumeParameterNode)
+        croppedVolume = slicer.mrmlScene.GetNodeByID(cropVolumeParameterNode.GetOutputVolumeNodeID())
+
+        inputImageArray  = slicer.util.arrayFromVolume(croppedVolume)
+        print("Input  shape:", inputImageArray.shape)
+        inputCrop_shape = inputImageArray.shape
+       
+        # Automated segmentation
+        #Import MONAI and dependencies
+        import numpy as np
+        import torch
+        from monai.inferers import SlidingWindowInferer
+
+        from monai.transforms import (
+          Compose,
+          AddChannel,
+          SpatialPad,
+        )
+        from monai.networks.nets import UNet
+        from monai.networks.layers.factories import Act
+        from monai.networks.layers import Norm
+
+        print("Cuda is available:", torch.cuda.is_available())
+
+        # if torch.cuda.is_available():
+        #     device = torch.device("cuda:0")
+        # else:
+        #     device = "cpu"
+        device = "cpu"
+    
+        #Define U-Net model
+        print(device)
+        model = UNet(
+            spatial_dims=3,
+            in_channels=1,
+            out_channels=2,
+            channels=(16,32,64,128),
+            strides=(2, 2, 2, 2),
+            num_res_units=2,
+            act=Act.RELU,
+            norm=Norm.BATCH,
+            dropout=0.2).to(device)
+        
+        #Load model weights
+        print(inputModelPath)
+        loaded_model = torch.load(inputModelPath, map_location='cpu')
+        model.load_state_dict(loaded_model, strict = True) #Strict is false since U-Net is missing some keys - batch norm related?
+        model.eval()
+
+        # inputImageArray = sitk.GetArrayFromImage(inputImage)
+        inputImageArray = torch.tensor(inputImageArray, dtype=torch.float)
+
+        # define pre-transforms
+        pre_transforms = Compose([
+            AddChannel(),
+            SpatialPad(spatial_size = [144,144,144], mode= "reflect"),
+            AddChannel(),
+        ])
+
+        # run inference
+        inputProcessed = pre_transforms(inputImageArray).to(device)
+        inferer = SlidingWindowInferer(roi_size=[96,96,96])
+
+        # process prediction output
+        output = inferer(inputProcessed, model)
+        output = torch.softmax(output, axis=1).data.cpu().numpy()
+        output = np.argmax(output, 1).squeeze().astype(int)
+        # output = np.moveaxis(output,[0,1,2],[2,1,0])
+        # Reorient. Numpy uses KJI format instead of IJK
+
+        # Crop the predicion back to original size
+        lower = [0]*3
+        upper = [0]*3
+        for i in range(len(inputCrop_shape)):
+            dim = inputCrop_shape[i]
+            padding = 144 - dim
+            if padding > 0:
+                lower[i] = int(np.floor(padding/2))
+                upper[i] = int(np.ceil(-padding/2))
+            else:
+                lower[i] = 0
+                upper[i] = dim
+      
+        output_reshaped = output[lower[0]:upper[0],lower[1]:upper[1],lower[2]:upper[2]]
+        print("Output shape:", output_reshaped.shape)
+
+        # # Keep largect connected component
+        # largest_comp_transform = KeepLargestConnectedComponent()
+        # val_comp = largest_comp_transform(val_outputs)                                                                              
+
+        # Need to take cropped segmentation back into the space of the original image
+        outputSegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(croppedVolume)
+
+        outputSegmentationNode.GetSegmentation().AddEmptySegment("ToothSegmentation")
+        segmentId = outputSegmentationNode.GetSegmentation().GetSegmentIdBySegmentName("ToothSegmentation")
+        print(outputSegmentationNode.GetSegmentation().GetNumberOfSegments())
+
+        slicer.util.updateSegmentBinaryLabelmapFromArray(output_reshaped,outputSegmentationNode, segmentId)
+
+        print("Completed prediction")
+
+        slicer.util.setSliceViewerLayers(background=inputVolume,foreground = outputSegmentationNode, foregroundOpacity=0.5)
 
         stopTime = time.time()
         logging.info(f'Processing completed in {stopTime-startTime:.2f} seconds')

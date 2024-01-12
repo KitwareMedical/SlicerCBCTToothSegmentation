@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>CBCTToothSegmentation</class>
- <widget class="qMRMLWidget" name="CBCTToothSegmentation">
+ <class>CBCTToothSegmentationTester</class>
+ <widget class="qMRMLWidget" name="CBCTToothSegmentationTester">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>325</width>
-    <height>311</height>
+    <width>860</width>
+    <height>875</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton">
      <property name="text">
-      <string>Inputs</string>
+      <string>Inputs/Outputs</string>
      </property>
      <layout class="QFormLayout" name="formLayout_2">
       <item row="0" column="0">
@@ -25,7 +25,7 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="qMRMLNodeComboBox" name="inputSelector">
+       <widget class="qMRMLNodeComboBox" name="inputSelectorBox">
         <property name="toolTip">
          <string>Pick the input to the algorithm.</string>
         </property>
@@ -49,92 +49,45 @@
        </widget>
       </item>
       <item row="2" column="0">
-       <widget class="QLabel" name="label_3">
+       <widget class="QLabel" name="label_4">
         <property name="text">
-         <string>Image threshold:</string>
+         <string>Input ROI:</string>
         </property>
        </widget>
       </item>
       <item row="2" column="1">
-       <widget class="ctkSliderWidget" name="imageThresholdSliderWidget">
-        <property name="toolTip">
-         <string>Set threshold value for computing the output image. Voxels that have intensities lower than this value will set to zero.</string>
-        </property>
-        <property name="singleStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>-100.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>500.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.500000000000000</double>
-        </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>imageThreshold</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="ctkCollapsibleButton" name="outputsCollapsibleButton">
-     <property name="text">
-      <string>Outputs</string>
-     </property>
-     <layout class="QFormLayout" name="formLayout_4">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="text">
-         <string>Thresholded volume:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="qMRMLNodeComboBox" name="outputSelector">
-        <property name="toolTip">
-         <string>Pick the output to the algorithm.</string>
-        </property>
+       <widget class="qMRMLNodeComboBox" name="inputROIBox">
         <property name="nodeTypes">
          <stringlist notr="true">
-          <string>vtkMRMLScalarVolumeNode</string>
+          <string>vtkMRMLMarkupsROINode</string>
          </stringlist>
         </property>
-        <property name="showChildNodeTypes">
-         <bool>false</bool>
+        <property name="hideChildNodeTypes">
+         <stringlist notr="true"/>
         </property>
-        <property name="noneEnabled">
-         <bool>true</bool>
-        </property>
-        <property name="addEnabled">
-         <bool>true</bool>
-        </property>
-        <property name="removeEnabled">
-         <bool>true</bool>
-        </property>
-        <property name="SlicerParameterName" stdset="0">
-         <string>thresholdedVolume</string>
+        <property name="interactionNodeSingletonTag">
+         <string notr="true"/>
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
+      <item row="3" column="1">
+       <widget class="qMRMLMarkupsROIWidget" name="MRMLMarkupsROIWidget"/>
+      </item>
+      <item row="4" column="0">
        <widget class="QLabel" name="label_5">
         <property name="text">
-         <string>Inverted volume:</string>
+         <string>Output segmentation:</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
-       <widget class="qMRMLNodeComboBox" name="invertedOutputSelector">
+      <item row="4" column="1">
+       <widget class="qMRMLNodeComboBox" name="outputSelectorBox">
         <property name="toolTip">
          <string>Result with inverted threshold will be written into this volume</string>
         </property>
         <property name="nodeTypes">
          <stringlist notr="true">
-          <string>vtkMRMLScalarVolumeNode</string>
+          <string>vtkMRMLSegmentationNode</string>
          </stringlist>
         </property>
         <property name="showChildNodeTypes">
@@ -150,7 +103,7 @@
          <bool>true</bool>
         </property>
         <property name="SlicerParameterName" stdset="0">
-         <string>invertedVolume</string>
+         <string>outputSegmentation</string>
         </property>
        </widget>
       </item>
@@ -158,31 +111,36 @@
     </widget>
    </item>
    <item>
-    <widget class="ctkCollapsibleButton" name="advancedCollapsibleButton">
+    <widget class="ctkCollapsibleButton" name="CollapsibleButton">
      <property name="text">
-      <string>Advanced</string>
+      <string>Segmentation Method</string>
      </property>
-     <property name="collapsed">
-      <bool>true</bool>
-     </property>
-     <layout class="QFormLayout" name="formLayout_3">
+     <layout class="QFormLayout" name="formLayout">
       <item row="0" column="0">
-       <widget class="QLabel" name="label_4">
+       <widget class="QLabel" name="label_3">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
         <property name="text">
-         <string>Invert threshold: </string>
+         <string>Load segmentation model: </string>
         </property>
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QCheckBox" name="invertOutputCheckBox">
-        <property name="toolTip">
-         <string>If checked, values above threshold are set to 0. If unchecked, values below are set to 0.</string>
+       <widget class="ctkPathLineEdit" name="PathLineEdit">
+        <property name="enabled">
+         <bool>true</bool>
         </property>
-        <property name="text">
+        <property name="currentPath">
          <string/>
         </property>
-        <property name="invertThreshold" stdset="0">
-         <string/>
+        <property name="nameFilters">
+         <stringlist>
+          <string>*.pth</string>
+         </stringlist>
+        </property>
+        <property name="SlicerParameterName" stdset="0">
+         <string>inputModelPath</string>
         </property>
        </widget>
       </item>
@@ -203,6 +161,28 @@
     </widget>
    </item>
    <item>
+    <widget class="ctkCollapsibleButton" name="Saveoutput">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="text">
+      <string>Export to file</string>
+     </property>
+     <property name="collapsed">
+      <bool>true</bool>
+     </property>
+     <layout class="QFormLayout" name="formLayout_3">
+      <item row="0" column="0" colspan="2">
+       <widget class="qMRMLSegmentationFileExportWidget" name="SegmentationDisplayNodeWidget">
+        <property name="settingsKey">
+         <string notr="true"/>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <spacer name="verticalSpacer">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
@@ -210,7 +190,7 @@
      <property name="sizeHint" stdset="0">
       <size>
        <width>20</width>
-       <height>40</height>
+       <height>20</height>
       </size>
      </property>
     </spacer>
@@ -218,6 +198,17 @@
   </layout>
  </widget>
  <customwidgets>
+  <customwidget>
+   <class>ctkCollapsibleButton</class>
+   <extends>QWidget</extends>
+   <header>ctkCollapsibleButton.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkPathLineEdit</class>
+   <extends>QWidget</extends>
+   <header>ctkPathLineEdit.h</header>
+  </customwidget>
   <customwidget>
    <class>qMRMLNodeComboBox</class>
    <extends>QWidget</extends>
@@ -230,23 +221,22 @@
    <container>1</container>
   </customwidget>
   <customwidget>
-   <class>ctkCollapsibleButton</class>
+   <class>qMRMLMarkupsROIWidget</class>
    <extends>QWidget</extends>
-   <header>ctkCollapsibleButton.h</header>
-   <container>1</container>
+   <header>qMRMLMarkupsROIWidget.h</header>
   </customwidget>
   <customwidget>
-   <class>ctkSliderWidget</class>
-   <extends>QWidget</extends>
-   <header>ctkSliderWidget.h</header>
+   <class>qMRMLSegmentationFileExportWidget</class>
+   <extends>qMRMLWidget</extends>
+   <header>qMRMLSegmentationFileExportWidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
  <connections>
   <connection>
-   <sender>CBCTToothSegmentation</sender>
+   <sender>CBCTToothSegmentationTester</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>inputSelector</receiver>
+   <receiver>inputSelectorBox</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -260,25 +250,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>CBCTToothSegmentation</sender>
+   <sender>CBCTToothSegmentationTester</sender>
    <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>outputSelector</receiver>
-   <slot>setMRMLScene(vtkMRMLScene*)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>82</x>
-     <y>135</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>220</x>
-     <y>161</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>CBCTToothSegmentation</sender>
-   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
-   <receiver>invertedOutputSelector</receiver>
+   <receiver>outputSelectorBox</receiver>
    <slot>setMRMLScene(vtkMRMLScene*)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -286,8 +260,72 @@
      <y>8</y>
     </hint>
     <hint type="destinationlabel">
-     <x>173</x>
-     <y>176</y>
+     <x>333</x>
+     <y>217</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>CBCTToothSegmentationTester</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>SegmentationDisplayNodeWidget</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>233</x>
+     <y>349</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>251</x>
+     <y>543</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>CBCTToothSegmentationTester</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>inputROIBox</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>239</x>
+     <y>395</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>295</x>
+     <y>139</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>CBCTToothSegmentationTester</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>MRMLMarkupsROIWidget</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>239</x>
+     <y>395</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>295</x>
+     <y>253</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>inputROIBox</sender>
+   <signal>currentNodeChanged(vtkMRMLNode*)</signal>
+   <receiver>MRMLMarkupsROIWidget</receiver>
+   <slot>setMRMLMarkupsNode(vtkMRMLNode*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>295</x>
+     <y>139</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>295</x>
+     <y>253</y>
     </hint>
    </hints>
   </connection>
