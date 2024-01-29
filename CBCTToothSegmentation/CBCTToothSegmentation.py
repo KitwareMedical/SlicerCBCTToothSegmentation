@@ -14,9 +14,7 @@ from slicer.parameterNodeWrapper import (
     WithinRange,
 )
 
-from slicer import vtkMRMLScalarVolumeNode,vtkMRMLMarkupsFiducialNode, vtkMRMLSegmentationNode, vtkMRMLMarkupsROINode
-import SimpleITK as sitk
-import sitkUtils
+from slicer import vtkMRMLScalarVolumeNode,vtkMRMLSegmentationNode, vtkMRMLMarkupsROINode
 
 #
 # CBCTToothSegmentation
@@ -118,7 +116,8 @@ class CBCTToothSegmentationParameterNode:
     inputVolume: vtkMRMLScalarVolumeNode
     outputSegmentation: vtkMRMLSegmentationNode
     inputROI: vtkMRMLMarkupsROINode
-    inputModelPath: pathlib.Path
+    saveSegmentation: vtkMRMLSegmentationNode
+
 #
 # CBCTToothSegmentationWidget
 #
@@ -160,40 +159,58 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
         self.logic = CBCTToothSegmentationLogic()
 
         # Connections
-
         # These connections ensure that we update parameter node when scene is closed
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
         self.ui.inputROIBox.currentNodeChanged.connect(self.initializeROI)
-        # Buttons
-        self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
+
+        # Only show some segment editor effects
+        self.ui.SegmentEditorWidget.setEffectNameOrder(["Paint", "Erase"])
+        self.ui.SegmentEditorWidget.unorderedEffectsVisible = False
+
+        #Set up segment editor
+        segmentEditorNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
+        self.ui.SegmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)
+
+        # Buttons
+        self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
+
 
     def initializeROI(self) -> None:
 
         """
         Initialize an ROI to fit the volume
         """
-        # Define an initial ROI set to the size of the input image
-        crop_module = slicer.vtkMRMLCropVolumeParametersNode()
-        slicer.mrmlScene.AddNode(crop_module)
-        crop_module.SetInputVolumeNodeID(self.ui.inputSelectorBox.currentNode().GetID())
-        # Set output volume as the same volume to overwrite original volume (only needed if you actually want to crop the volume)
-        crop_module.SetOutputVolumeNodeID(self.ui.inputSelectorBox.currentNode().GetID())
-        # Set the input ROI
-        crop_module.SetROINodeID(self.ui.inputROIBox.currentNode().GetID())
+        if self.ui.inputROIBox.currentNode() is None:
 
-        # Use the Fit ROI to Volume function of the crop volume module
-        slicer.modules.cropvolume.logic().SnapROIToVoxelGrid(crop_module)  # optional (rotates the ROI to match the volume axis directions)
-        slicer.modules.cropvolume.logic().FitROIToInputVolume(crop_module)
+            self.ui.adjustROI.enabled = False
 
-        slicer.mrmlScene.RemoveNode(crop_module)
-        self.ui.inputROIBox.currentNode().SetName(
-            slicer.mrmlScene.GenerateUniqueName("Tooth Segmentation ROI")
-        )
+        else:
+            # Define an initial ROI set to the size of the input image
+            crop_module = slicer.vtkMRMLCropVolumeParametersNode()
+            slicer.mrmlScene.AddNode(crop_module)
+            crop_module.SetInputVolumeNodeID(self.ui.inputSelectorBox.currentNode().GetID())
+            # Set output volume as the same volume to overwrite original volume (only needed if you actually want to crop the volume)
+            crop_module.SetOutputVolumeNodeID(self.ui.inputSelectorBox.currentNode().GetID())
+            # Set the input ROI
+            crop_module.SetROINodeID(self.ui.inputROIBox.currentNode().GetID())
+
+            # Use the Fit ROI to Volume function of the crop volume module
+            slicer.modules.cropvolume.logic().SnapROIToVoxelGrid(crop_module)  # optional (rotates the ROI to match the volume axis directions)
+            slicer.modules.cropvolume.logic().FitROIToInputVolume(crop_module)
+
+            slicer.mrmlScene.RemoveNode(crop_module)
+            self.ui.inputROIBox.currentNode().SetName(
+                slicer.mrmlScene.GenerateUniqueName("Tooth Segmentation ROI")
+            )
+
+            self.ui.adjustROI.enabled = True
+            self.ui.adjustROI.setMRMLMarkupsNode(self.ui.inputROIBox.currentNode())
+
 
     def cleanup(self) -> None:
         """
@@ -248,6 +265,11 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
             if firstVolumeNode:
                 self._parameterNode.inputVolume = firstVolumeNode
 
+        # Check input ROI node
+        if self.ui.inputROIBox.currentNode() is not None:
+            self.ui.adjustROI.enabled = True
+            self.ui.adjustROI.setMRMLMarkupsNode(self.ui.inputROIBox.currentNode())
+
 
     def setParameterNode(self, inputParameterNode: Optional[CBCTToothSegmentationParameterNode]) -> None:
         """
@@ -264,10 +286,16 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
             # ui element that needs connection.
             self._parameterNodeGuiTag = self._parameterNode.connectGui(self.ui)
             self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._checkCanApply)
+            self.addObserver(self._parameterNode, vtk.vtkCommand.ModifiedEvent, self._canExportFile)
             self._checkCanApply()
+            self._canExportFile()
+
+    def _canExportFile(self, caller = None, event = None) -> None:
+        if self._parameterNode and self._parameterNode.saveSegmentation:
+            self.ui.FileExportWidget.setSegmentationNode(self._parameterNode.saveSegmentation)
 
     def _checkCanApply(self, caller=None, event=None) -> None:
-        if self._parameterNode and self._parameterNode.inputVolume and self._parameterNode.inputModelPath:
+        if self._parameterNode and self._parameterNode.inputVolume and self._parameterNode.inputROI:
             self.ui.applyButton.toolTip = _("Compute output tooth segmentation")
             self.ui.applyButton.enabled = True
         else:
@@ -280,23 +308,26 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
         """
         with slicer.util.tryWithErrorDisplay(_("Failed to compute results."), waitCursor=True):
             
-            print("UI")
-            print(self.ui)
-            
-            segmentationNode = self.ui.outputSelectorBox.currentNode()
+            #segmentationNode = self.ui.outputSelectorBox.currentNode()
             # Create output segmentation node, if not created yet 
-            if not segmentationNode:
-                segmentationNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode', slicer.mrmlScene.GenerateUniqueName('Tooth'))
-                segmentationNode.CreateDefaultDisplayNodes()
-                segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(self.ui.inputSelectorBox.currentNode())
-                self.ui.outputSelectorBox.setCurrentNode(segmentationNode)
+            outputSegmentationNode = self._parameterNode.outputSegmentation
+            if not outputSegmentationNode:
+                outputSegmentationNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode', slicer.mrmlScene.GenerateUniqueName('Tooth'))
+                outputSegmentationNode.CreateDefaultDisplayNodes()
+                outputSegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(self.ui.inputSelectorBox.currentNode())
+                self.ui.outputSelectorBox.setCurrentNode(outputSegmentationNode)
 
             # Setup python requirements
             self.logic.setupPythonRequirements()
 
+            #self.ui.inputSelectorBox.currentNode()
             # Compute output segmentation
-            self.logic.process(self.ui.inputSelectorBox.currentNode(), segmentationNode, self.ui.inputROIBox.currentNode(),self._parameterNode.inputModelPath)
+            self.logic.process(self._parameterNode.inputVolume, outputSegmentationNode, self.ui.inputROIBox.currentNode())
 
+            #Un-collapse the Segmentation Editor
+            self.ui.SegmentEditorButton.collapsed = False
+
+            self.logic.initializeFinalSteps(self.ui.inputSelectorBox.currentNode(), outputSegmentationNode)
 # CBCTToothSegmentationLogic
 #
 
@@ -349,6 +380,9 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
             logging.debug('Module requires the MONAI Python package. Installing... (it may take several minutes)')
             slicer.util.pip_install('monai')     
 
+    def removeModel(self, modelPath) -> None:
+        os.remove(modelPath)
+
     def downloadModel(self) -> None:
 
         """
@@ -371,12 +405,20 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         
         return modelPath
         
+    def initializeFinalSteps(self,inputVolume: vtkMRMLScalarVolumeNode,
+                                outputSegmentationNode: vtkMRMLSegmentationNode) -> None:
+
+        slicer.modules.CBCTToothSegmentationWidget.ui.SegmentEditorWidget.setSegmentationNode(outputSegmentationNode)
+        slicer.modules.CBCTToothSegmentationWidget.ui.SegmentEditorWidget.setSourceVolumeNode(inputVolume)
+
+
+        # slicer.modules.CBCTToothSegmentationWidget.ui.FileExportWidget.setSegmentationNode(outputSegmentationNode)
+
+
     def process(self,
                 inputVolume: vtkMRMLScalarVolumeNode,
                 outputSegmentationNode: vtkMRMLSegmentationNode,
-                inputROI: vtkMRMLMarkupsROINode,
-                inputModelPath: pathlib.Path,
-                showResult: bool = True) -> None:
+                inputROI: vtkMRMLMarkupsROINode) -> None:
         """
         Run the processing algorithm.
         Can be used without GUI widget.
@@ -420,16 +462,14 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         from monai.networks.layers.factories import Act
         from monai.networks.layers import Norm
 
-        print("Cuda is available:", torch.cuda.is_available())
-
         if torch.cuda.is_available():
             device = torch.device("cuda:0")
         else:
             device = "cpu"
-        # device = "cpu"
+        
+        print("Using ", device, " for compute")
     
         #Define U-Net model
-        print(device)
         model = UNet(
             spatial_dims=3,
             in_channels=1,
@@ -461,6 +501,9 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         inputProcessed = pre_transforms(inputImageArray).to(device)
         inferer = SlidingWindowInferer(roi_size=[96,96,96])
 
+        # Delete downloaded model from temp directory
+        self.removeModel(inputModelPath)
+
         # process prediction output
         output = inferer(inputProcessed, model)
         output = torch.softmax(output, axis=1).data.cpu().numpy()
@@ -485,12 +528,16 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         # largest_comp_transform = KeepLargestConnectedComponent()
         # val_comp = largest_comp_transform(val_outputs)                                                                              
 
+        print("Inference done")
         # Need to take cropped segmentation back into the space of the original image
         outputSegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(croppedVolume)
         outputSegmentationNode.GetSegmentation().AddEmptySegment("ToothSegmentation")
         segmentId = outputSegmentationNode.GetSegmentation().GetSegmentIdBySegmentName("ToothSegmentation")
 
         slicer.util.updateSegmentBinaryLabelmapFromArray(output_reshaped,outputSegmentationNode, segmentId)
+
+        # Clearn up - Remove cropped volume node
+        slicer.mrmlScene.RemoveNode(croppedVolume)
 
         slicer.util.setSliceViewerLayers(background=inputVolume,foreground = outputSegmentationNode, foregroundOpacity=0.5)
 
