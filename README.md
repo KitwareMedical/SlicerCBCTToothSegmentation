@@ -3,7 +3,9 @@ SlicerCBCTToothSegmentation
 
 Slicer extension for automated segmentation of individual teeth in cone-beam CT dental scans using a deep-learning based approach.
 
+![](Screenshot01.png)
 
+This module requires the Pytorch extension which can be installed via the Extension Manager. Python dependencies such as MONAI will be automaically installed by the module if not available.
 
 Usage
 -----
@@ -12,9 +14,9 @@ Usage
 2. Create a new 'Input ROI' and adjust the bounding box to surround the tooth of interest that you would like to segment. 
 3. Specify an 'Output Segmentation' and click the 'Apply' button. 
 
-- Steps 2) and 3) can be repeated to segment multiple teeth. 
-- The `segmentation editor` built into the module can be used to edit the automated output segmentation using the `Paint` and `Erase` tools.
-- The `Export to file` section can be used to directly save the output segmentation to file. 
+- Repeat steps 2) and 3) to segment multiple teeth. 
+- Edit the automated output segmentation using the `Paint` and `Erase` tools in the `Segmentation editor` built into the module
+- Directly save the output segmentation to file in the `Export to file` section. 
 
 License
 -------
