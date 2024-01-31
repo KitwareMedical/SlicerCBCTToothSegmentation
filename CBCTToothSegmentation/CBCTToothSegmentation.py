@@ -107,11 +107,7 @@ class CBCTToothSegmentationParameterNode:
     """
     The parameters needed by module.
 
-    inputVolume - The volume to threshold.
-    imageThreshold - The value at which to threshold the input volume.
-    invertThreshold - If true, will invert the threshold.
-    thresholdedVolume - The output volume that will contain the thresholded volume.
-    invertedVolume - The output volume that will contain the inverted thresholded volume.
+    inputVolume - The volume to segment
     """
     inputVolume: vtkMRMLScalarVolumeNode
     outputSegmentation: vtkMRMLSegmentationNode
@@ -269,7 +265,7 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
         if self.ui.inputROIBox.currentNode() is not None:
             self.ui.adjustROI.enabled = True
             self.ui.adjustROI.setMRMLMarkupsNode(self.ui.inputROIBox.currentNode())
-
+        
 
     def setParameterNode(self, inputParameterNode: Optional[CBCTToothSegmentationParameterNode]) -> None:
         """
@@ -373,7 +369,6 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         # import torch
     
         # Install MONAI and restart if the version was updated.
-        monaiVersion = "0.9.0"
         try:
             import monai
         except:
@@ -529,7 +524,7 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         # Need to take cropped segmentation back into the space of the original image
         outputSegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(croppedVolume)
         outputSegmentationNode.GetSegmentation().AddEmptySegment("ToothSegmentation")
-        segmentId = outputSegmentationNode.GetSegmentation().GetSegmentIdBySegmentName("ToothSegmentation")
+        segmentId = outputSegmentationNode.GetSegmentation().GetSegmentIDs()[-1]
 
         slicer.util.updateSegmentBinaryLabelmapFromArray(output_reshaped,outputSegmentationNode, segmentId)
 

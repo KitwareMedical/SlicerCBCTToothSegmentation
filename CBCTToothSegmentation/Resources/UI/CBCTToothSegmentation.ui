@@ -154,7 +154,7 @@
       <string>Segmentation Editor</string>
      </property>
      <property name="collapsed">
-      <bool>true</bool>
+      <bool>false</bool>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
@@ -162,8 +162,20 @@
         <property name="enabled">
          <bool>true</bool>
         </property>
+        <property name="segmentationNodeSelectorVisible">
+         <bool>true</bool>
+        </property>
         <property name="sourceVolumeNodeSelectorVisible">
-         <bool>false</bool>
+         <bool>true</bool>
+        </property>
+        <property name="autoShowSourceVolumeNode">
+         <bool>true</bool>
+        </property>
+        <property name="masterVolumeNodeSelectorVisible">
+         <bool>true</bool>
+        </property>
+        <property name="autoShowMasterVolumeNode">
+         <bool>true</bool>
         </property>
         <property name="defaultTerminologyEntrySettingsKey">
          <string notr="true"/>
