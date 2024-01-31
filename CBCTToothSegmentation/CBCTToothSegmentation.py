@@ -29,7 +29,7 @@ class CBCTToothSegmentation(ScriptedLoadableModule):
         ScriptedLoadableModule.__init__(self, parent)
         self.parent.title = _("CBCTToothSegmentation")  # TODO: make this more human readable by adding spaces
         # TODO: set categories (folders where the module shows up in the module selector)
-        self.parent.categories = [translate("qSlicerAbstractCoreModule", "DentalCBCTToolkit")]
+        self.parent.categories = [translate("qSlicerAbstractCoreModule", "Segmentation")]
         self.parent.dependencies = []  # TODO: add here list of module names that this module requires
         self.parent.contributors = ["John Doe (AnyWare Corp.)"]  # TODO: replace with "Firstname Lastname (Organization)"
         # TODO: update with short description of the module and a link to online module documentation
@@ -169,7 +169,7 @@ class CBCTToothSegmentationWidget(ScriptedLoadableModuleWidget, VTKObservationMi
         self.initializeParameterNode()
 
         # Only show some segment editor effects
-        self.ui.SegmentEditorWidget.setEffectNameOrder(["Paint", "Erase"])
+        self.ui.SegmentEditorWidget.setEffectNameOrder(["Paint", "Draw", "Erase"])
         self.ui.SegmentEditorWidget.unorderedEffectsVisible = False
 
         #Set up segment editor
@@ -410,9 +410,6 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
 
         slicer.modules.CBCTToothSegmentationWidget.ui.SegmentEditorWidget.setSegmentationNode(outputSegmentationNode)
         slicer.modules.CBCTToothSegmentationWidget.ui.SegmentEditorWidget.setSourceVolumeNode(inputVolume)
-
-
-        # slicer.modules.CBCTToothSegmentationWidget.ui.FileExportWidget.setSegmentationNode(outputSegmentationNode)
 
 
     def process(self,
