@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Annotated, Optional
 
-import vtk, pathlib
+import vtk, pathlib, sitkUtils, itk
 
 import slicer
 from slicer.i18n import tr as _
@@ -479,7 +479,6 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         model.load_state_dict(loaded_model, strict = True) #Strict is false since U-Net is missing some keys - batch norm related?
         model.eval()
 
-        # inputImageArray = sitk.GetArrayFromImage(inputImage)
         inputImageArray = torch.tensor(inputImageArray, dtype=torch.float)
 
         # define pre-transforms
@@ -521,21 +520,23 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         # val_comp = largest_comp_transform(val_outputs)                                                                              
 
         print("Inference done")
-        # Need to take cropped segmentation back into the space of the original image
+
+        # Need to take cropped segmentation back into the space of the original image croppedVolume
         outputSegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(croppedVolume)
         outputSegmentationNode.GetSegmentation().AddEmptySegment("ToothSegmentation")
-        segmentId = outputSegmentationNode.GetSegmentation().GetSegmentIDs()[-1]
+        segmentId =  outputSegmentationNode.GetSegmentation().GetSegmentIDs()[-1]
 
-        slicer.util.updateSegmentBinaryLabelmapFromArray(output_reshaped,outputSegmentationNode, segmentId)
+        slicer.util.updateSegmentBinaryLabelmapFromArray(output_reshaped, outputSegmentationNode, segmentId)
 
-        # Clearn up - Remove cropped volume node
+        # set reference geometry to match input volume
+        outputSegmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(inputVolume)
+
         slicer.mrmlScene.RemoveNode(croppedVolume)
 
         slicer.util.setSliceViewerLayers(background=inputVolume,foreground = outputSegmentationNode, foregroundOpacity=0.5)
 
         stopTime = time.time()
         logging.info(f'Processing completed in {stopTime-startTime:.2f} seconds')
-
 
 #
 # CBCTToothSegmentationTest
