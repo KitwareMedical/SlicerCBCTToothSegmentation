@@ -4,12 +4,12 @@ project(DentalCBCTToolkit)
 
 #-----------------------------------------------------------------------------
 # Extension meta-information
-set(EXTENSION_HOMEPAGE "https://www.slicer.org/wiki/Documentation/Nightly/Extensions/DentalCBCTToolkit")
-set(EXTENSION_CATEGORY "DentalCBCTToolkit")
-set(EXTENSION_CONTRIBUTORS "Sadhana Ravikumar (Kitware Inc.)")
-set(EXTENSION_DESCRIPTION "This is an example of a simple extension")
-set(EXTENSION_ICONURL "https://www.example.com/Slicer/Extensions/DentalCBCTToolkit.png")
-set(EXTENSION_SCREENSHOTURLS "https://www.example.com/Slicer/Extensions/DentalCBCTToolkit/Screenshots/1.png")
+set(EXTENSION_HOMEPAGE "https://github.com/KitwareMedical/SlicerCBCTToothSegmentation")
+set(EXTENSION_CATEGORY "Segmentation")
+set(EXTENSION_CONTRIBUTORS "Sadhana Ravikumar (Kitware Inc.), Jared Vicory (Kitware Inc.), James Fishbaugh (Kitware Inc.), Beatriz Paniagua (Kitware Inc.)")
+set(EXTENSION_DESCRIPTION "Automated segmentation of individual teeth in cone-beam CT dental scans using a deep-learning based approach.")
+set(EXTENSION_ICONURL "https://github.com/KitwareMedical/SlicerCBCTToothSegmentation/master/CBCTToothSegmentation/Resources/Icons/CBCTToothSegmentation.png")
+set(EXTENSION_SCREENSHOTURLS "https://github.com/KitwareMedical/SlicerCBCTToothSegmentation/master/Screenshot01.png")
 set(EXTENSION_DEPENDS "NA") # Specified as a list or "NA" if no dependencies
 
 #-----------------------------------------------------------------------------
