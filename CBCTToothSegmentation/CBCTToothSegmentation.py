@@ -350,6 +350,13 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
 
         print('Checking python dependencies')
 
+        # Install itk.
+        try:
+            import itk
+        except:
+            logging.debug('Module requires the itk Python package. Installing... (it may take several minutes)')
+            slicer.util.pip_install('itk')     
+
         # Install PyTorch
         try:
             import PyTorchUtils
