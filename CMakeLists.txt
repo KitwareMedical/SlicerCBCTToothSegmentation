@@ -20,7 +20,6 @@ include(${Slicer_USE_FILE})
 #-----------------------------------------------------------------------------
 # Extension modules
 add_subdirectory(CBCTToothSegmentation)
-add_subdirectory(DentalCBCTSegmentation)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
