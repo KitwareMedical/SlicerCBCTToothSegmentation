@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Annotated, Optional
 
-import vtk, pathlib, sitkUtils, itk
+import vtk, pathlib, sitkUtils
 
 import slicer
 from slicer.i18n import tr as _
