@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Annotated, Optional
 
-import vtk, pathlib, sitkUtils, itk
+import vtk, pathlib, sitkUtils
 
 import slicer
 from slicer.i18n import tr as _
@@ -505,7 +505,7 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         # process prediction output
         output = inferer(inputProcessed, model)
         output = torch.softmax(output, axis=1).data.cpu().numpy()
-        output = np.argmax(output, 1).squeeze().astype(int)
+        output = np.argmax(output, 1).squeeze().astype(np.uint8)
 
         # Crop the predicion back to original size
         lower = [0]*3
