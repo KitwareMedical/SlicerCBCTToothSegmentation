@@ -454,7 +454,7 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
 
         from monai.transforms import (
           Compose,
-          AddChannel,
+          EnsureChannelFirst,
           SpatialPad,
         )
         from monai.networks.nets import UNet
@@ -490,9 +490,9 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
 
         # define pre-transforms
         pre_transforms = Compose([
-            AddChannel(),
+            EnsureChannelFirst(channel_dim='no_channel'),
             SpatialPad(spatial_size = [144,144,144], mode= "reflect"),
-            AddChannel(),
+            EnsureChannelFirst(channel_dim='no_channel') 
         ])
 
         # run inference
@@ -515,7 +515,7 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
             padding = 144 - dim
             if padding > 0:
                 lower[i] = int(np.floor(padding/2))
-                upper[i] = int(np.ceil(-padding/2))
+                upper[i] = -int(np.ceil(padding/2))
             else:
                 lower[i] = 0
                 upper[i] = dim
