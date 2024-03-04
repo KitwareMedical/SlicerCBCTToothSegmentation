@@ -15,6 +15,7 @@ from slicer.parameterNodeWrapper import (
 )
 
 from slicer import vtkMRMLScalarVolumeNode,vtkMRMLSegmentationNode, vtkMRMLMarkupsROINode
+from packaging import version
 
 #
 # CBCTToothSegmentation
@@ -376,11 +377,19 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         # import torch
     
         # Install MONAI and restart if the version was updated.
+        monaiVersion = "1.3.0"
         try:
             import monai
+            if version.parse(monai.__version__) != version.parse(monaiVersion):
+                logging.debug(f'MEMOS requires MONAI version {monaiVersion}. Installing... (it may take several minutes)')
+                slicer.util.pip_uninstall('monai')
+                slicer.util.pip_install('monai[pynrrd,fire]=='+ monaiVersion)
+                if slicer.util.confirmOkCancelDisplay(f'MONAI version was updated {monaiVersion}.\n Click OK restart Slicer.'):
+                    slicer.util.restart()
         except:
             logging.debug('Module requires the MONAI Python package. Installing... (it may take several minutes)')
-            slicer.util.pip_install('monai')     
+            slicer.util.pip_install('monai[pynrrd,fire]=='+ monaiVersion)
+    
 
     def removeModel(self, modelPath) -> None:
         os.remove(modelPath)
