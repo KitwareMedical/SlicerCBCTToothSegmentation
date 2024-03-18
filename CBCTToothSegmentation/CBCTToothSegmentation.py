@@ -46,7 +46,7 @@ and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR0132
 """)
 
         # Additional initialization step after application startup is complete
-        slicer.app.connect("startupCompleted()", registerSampleData)
+        #slicer.app.connect("startupCompleted()", registerSampleData)
 
 
 #
@@ -403,7 +403,9 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         import SampleData
         import os, qt
 
-        url = "https://drive.usercontent.google.com/download?id=1a0uxBQmVkCAaqKNJiFEo3NKAfCv5z0SL&export=download&authuser=0"
+
+        url = "https://drive.google.com/uc?export=download&id=1J2DEBGKxbNWJ6KM2dZ8NTI3KaoAF3q4e"
+        #V1: url = "https://drive.usercontent.google.com/download?id=1a0uxBQmVkCAaqKNJiFEo3NKAfCv5z0SL&export=download&authuser=0"
         destination_folder = qt.QDir().tempPath()
         modelPath = os.path.join(destination_folder,'pretrainedmodel-DentalCBCTSegmentation.pth')
         name = 'pretrainedmodel-DentalCBCTSegmentation.pth'
@@ -465,6 +467,7 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
           Compose,
           EnsureChannelFirst,
           SpatialPad,
+          NormalizeIntensity
         )
         from monai.networks.nets import UNet
         from monai.networks.layers.factories import Act
@@ -500,6 +503,7 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         # define pre-transforms
         pre_transforms = Compose([
             EnsureChannelFirst(channel_dim='no_channel'),
+            NormalizeIntensity(),
             SpatialPad(spatial_size = [144,144,144], mode= "reflect"),
             EnsureChannelFirst(channel_dim='no_channel') 
         ])
@@ -531,7 +535,7 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
       
         output_reshaped = output[lower[0]:upper[0],lower[1]:upper[1],lower[2]:upper[2]]
 
-        # # Keep largect connected component
+        # # Keep largest connected component
         # largest_comp_transform = KeepLargestConnectedComponent()
         # val_comp = largest_comp_transform(val_outputs)                                                                              
 
