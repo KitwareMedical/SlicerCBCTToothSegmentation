@@ -7,7 +7,7 @@ project(DentalCBCTToolkit)
 set(EXTENSION_HOMEPAGE "https://github.com/KitwareMedical/SlicerCBCTToothSegmentation")
 set(EXTENSION_CATEGORY "Segmentation")
 set(EXTENSION_CONTRIBUTORS "Sadhana Ravikumar (Kitware Inc.), Jared Vicory (Kitware Inc.), James Fishbaugh (Kitware Inc.), Beatriz Paniagua (Kitware Inc.)")
-set(EXTENSION_DESCRIPTION "Automated segmentation of individual teeth in cone-beam CT dental scans using a deep-learning based approach.")
+set(EXTENSION_DESCRIPTION "Slicer extension for automated segmentation of individual teeth in cone-beam CT dental scans using a deep-learning based approach.")
 set(EXTENSION_ICONURL "https://raw.githubusercontent.com/KitwareMedical/SlicerCBCTToothSegmentation/master/CBCTToothSegmentation/Resources/Icons/CBCTToothSegmentation.png")
 set(EXTENSION_SCREENSHOTURLS "https://raw.githubusercontent.com/KitwareMedical/SlicerCBCTToothSegmentation/master/Screenshot01.png")
 set(EXTENSION_DEPENDS "NA") # Specified as a list or "NA" if no dependencies
