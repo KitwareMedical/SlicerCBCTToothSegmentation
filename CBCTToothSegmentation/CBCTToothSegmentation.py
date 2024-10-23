@@ -381,7 +381,7 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         try:
             import monai
             if version.parse(monai.__version__) != version.parse(monaiVersion):
-                logging.debug(f'MEMOS requires MONAI version {monaiVersion}. Installing... (it may take several minutes)')
+                logging.debug(f'Module requires MONAI version {monaiVersion}. Installing... (it may take several minutes)')
                 slicer.util.pip_uninstall('monai')
                 slicer.util.pip_install('monai[pynrrd,fire]=='+ monaiVersion)
                 if slicer.util.confirmOkCancelDisplay(f'MONAI version was updated {monaiVersion}.\n Click OK restart Slicer.'):
@@ -445,17 +445,36 @@ class CBCTToothSegmentationLogic(ScriptedLoadableModuleLogic):
         startTime = time.time()
         logging.info('Processing started')
 
+        # ## Get the spacing of the input volume
+        inputSpacing = inputVolume.GetSpacing()
+
+        # # Caculate spacing scale
+        targetSpacing = 0.0075
+        spacingScale = [0,0,0]
+        for i in range(3):
+            spacingScale[i] = targetSpacing/inputSpacing[i]
+        print('Upsampling image using scaling factor: ', spacingScale)
+
         # Crop the image using the user specified ROI
         cropVolumeLogic = slicer.modules.cropvolume.logic()
         cropVolumeParameterNode = slicer.vtkMRMLCropVolumeParametersNode()
         cropVolumeParameterNode.SetROINodeID(inputROI.GetID())
         cropVolumeParameterNode.SetInputVolumeNodeID(inputVolume.GetID())
         cropVolumeParameterNode.SetVoxelBased(True)
-        cropVolumeLogic.Apply(cropVolumeParameterNode)
-        croppedVolume = slicer.mrmlScene.GetNodeByID(cropVolumeParameterNode.GetOutputVolumeNodeID())
+
+        # Create cropped output volume node
+        croppedVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", "croppedVolume")
+
+        cropVolumeLogic.CropInterpolated(inputROI, inputVolume, croppedVolume, True, max(spacingScale), 0, 0.0)
+        #cropVolumeLogic.Apply(cropVolumeParameterNode)
+        # croppedVolume = slicer.mrmlScene.GetNodeByID(cropVolumeParameterNode.GetOutputVolumeNodeID())
+
+        slicer.util.exportNode(croppedVolume,"cropped_region.nrrd")
+    
 
         inputImageArray  = slicer.util.arrayFromVolume(croppedVolume)
         inputCrop_shape = inputImageArray.shape
+        print('Network input shape:', inputCrop_shape)
        
         # Automated segmentation
         #Import MONAI and dependencies
